@@ -1,54 +1,8 @@
-- user will give pdf which we need to extract the text, layout, iamges and have a responsive html structure
-- readable html structure which is optimized for reading in browser
-- html will again configured for e-reader based css configuration
-- then i will be further iterated to support things related e-readers
-- then chapters are marked properly formated justified and remove unwanted artifacts
-
-
-problem statement in nutshell: in pdf things viaually is perfect but things like text, images etc, are absolutely positioned in pdf and user can zoom in and out makes perfect sense and things go well but not in e-readers you cant zoom in or out and it has a very low refersh rate and mainly text focused. so the current pdf to epub converter exist they convert but with issues and dont give the same output and feel of how actual publishers provide has lot of unwanted artifacts and positioning is wrong no standards on how things should look (authors artifacts or decisions or anti-copy implementations etc.)
-
-- the main issues 
-- pdf cannot be parsed regularly through a simple pipeline the issue with this is 
-  - inconsistant text
-  - added unwanted artifacts
-  - text injection due to pdf header and footer which epub wont have
-- images are absolute positioned
-  - sometimes goes very small
-  - goes very large
-  - sometimes it's not rendered properly
-- tables 
-  - having a lot of columns making text very small to even read
-  - missing headers on next pages
-  - mainly it's a horrible experience to read tables in e-readers need to be optimized
-
-
----
-
-## next steps
-- have structured format of the book so we can do post processing
-  - generate summary
-  - daily digestable news letter of the book
-  - daily topics to read from the book 
-  - changing writing style / persona of the book while keeping the same contents
-
----
-
-# PDF → E-Reader Conversion Pipeline
-### Problem Statement & Technical Specification
-
----
-
 ## Overview
 
 PDFs are designed for fixed-size screens with free zoom — every element (text, image, table) is absolutely positioned for visual perfection at a specific page size. E-readers are an entirely different medium: text-first, low-refresh-rate, fixed-viewport devices where absolute positioning breaks entirely.
 
 Existing PDF-to-EPUB converters do a mechanical conversion — they carry over the broken positioning, inject unwanted artifacts, and produce output that no publisher would ship. The goal of this project is to build a pipeline that produces **publisher-quality EPUB3 and HTML output** that genuinely reads well on Kobo, Kindle, and browser-based readers.
-
----
-
-## Problem in Detail
-
-### Why PDF → EPUB is hard
 
 A PDF is not a document. It is a set of rendering instructions — "place this glyph at coordinate (x, y)", "draw this image at (x2, y2) with width w and height h". There is no semantic meaning: no concept of paragraphs, no concept of "this text is a heading", no concept of "this image belongs to this caption". Everything that looks structured to a human reader is purely visual coincidence of positioning.
 
@@ -78,6 +32,13 @@ This mismatch is the root cause of every problem in the existing converter ecosy
 | EPUB3 | Kobo, PocketBook | Native format — full CSS3 support |
 | EPUB3 → KFX/MOBI | Kindle | Requires post-conversion step via Calibre or KindleGen; stricter formatting rules apply |
 | HTML | Browser reading view | Responsive, optimised for reading — also serves as the review format during QA |
+
+### User Interaction
+
+- **Interface:** Web UI / dashboard — no local tooling, accessible to non-technical users
+- **Input:** Single PDF upload per session (v1)
+- **Review:** In-browser HTML preview with flagged section highlighting
+- **Output:** Download EPUB3, KFX/MOBI, or HTML
 
 ---
 
@@ -163,110 +124,47 @@ Semantic structure (chapters, sections, subsections) is what makes an EPUB navig
 
 ---
 
-## Processing Pipeline
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                          INPUT: PDF upload                              │
-└──────────────────────────────────┬──────────────────────────────────────┘
-                                   │
-                    ┌──────────────▼──────────────┐
-                    │    1. Parse & classify       │
-                    │  • Text extraction           │
-                    │  • Image inventory           │
-                    │  • Layout type detection     │
-                    │  • Confidence scoring        │
-                    └──────────────┬──────────────┘
-                                   │
-                    ┌──────────────▼──────────────┐
-                    │    2. Artifact removal       │
-                    │  • Header/footer strip       │
-                    │  • Anti-copy cleanup         │
-                    │  • Decorative image strip    │
-                    │  • Ligature normalisation    │
-                    └──────────────┬──────────────┘
-                                   │
-                    ┌──────────────▼──────────────┐
-                    │    3. Semantic structuring   │
-                    │  • Chapter detection         │
-                    │  • Heading hierarchy         │
-                    │  • Table classification      │
-                    │  • Image classification      │
-                    └──────────────┬──────────────┘
-                                   │
-                    ┌──────────────▼──────────────┐
-                    │    4. AI enrichment          │
-                    │  • Image recaptioning        │
-                    │  • Diagram → Mermaid/D2      │
-                    │  • Table → prose/sub-tables  │
-                    │  • Confidence flagging       │
-                    └──────────────┬──────────────┘
-                                   │
-                    ┌──────────────▼──────────────┐
-                    │    5. Human QA review        │  ← flagged sections only
-                    │  • Review UI (HTML preview)  │
-                    │  • Approve / correct / skip  │
-                    └──────────────┬──────────────┘
-                                   │
-                    ┌──────────────▼──────────────┐
-                    │    6. Export                 │
-                    │  • EPUB3 generation          │
-                    │  • Kindle KFX/MOBI (Calibre) │
-                    │  • HTML reading view         │
-                    └──────────────┬──────────────┘
-                                   │
-                    ┌──────────────▼──────────────┐
-                    │  7. Post-processing (TBD)    │
-                    │  • Summary generation        │
-                    │  • Newsletter format         │
-                    │  • Daily reading plan        │
-                    │  • Style rewriting           │
-                    └─────────────────────────────┘
-```
-
----
-
 ## Intermediate Document Model
 
-The linchpin of the pipeline is a **clean, queryable intermediate representation** of the book — produced after parsing and before export. Every downstream feature (QA review, chapter navigation, post-processing) depends on this.
-
-Proposed structure (JSON/YAML):
+A clean, queryable intermediate representation produced after parsing and before export:
 
 ```json
 {
-  "metadata": {
-    "title": "...",
-    "author": "...",
-    "language": "en",
-    "source_pdf_hash": "..."
-  },
+  "metadata": {...},
   "chapters": [
     {
-      "id": "ch-01",
-      "title": "Introduction",
-      "confidence": 0.97,
+      "id": "...",
+      "title": "...",
+      "confidence": ...,
       "sections": [
         {
-          "id": "sec-01-01",
-          "heading": "Background",
-          "heading_level": 2,
+          "id": "...",
+          "heading": "...",
+          "heading_level": ...,
           "blocks": [
             { "type": "paragraph", "text": "..." },
-            { "type": "image", "src": "...", "caption": "...", "original_type": "content" },
-            { "type": "table", "strategy": "prose_rewrite", "original_cols": 9, "content": "..." },
-            { "type": "diagram", "format": "mermaid", "source": "graph TD\n  A-->B", "confidence": 0.84 }
+            { "type": "image", "src": "...", "caption": "...", "original_type": "..." },
+            { "type": "table", "strategy": "...", "original_cols": ..., "content": "..." },
+            { "type": "diagram", "format": "mermaid", "source": "...", "confidence": ... }
           ]
         }
       ]
     }
   ],
   "flagged": [
-    { "ref": "ch-01/sec-01-01/blocks/3", "reason": "diagram confidence below threshold", "confidence": 0.84 }
+    { "ref": "...", "reason": "...", "confidence": ... }
   ]
 }
 ```
+## Processing Pipeline
 
-This model makes post-processing trivial — summarisation, newsletter generation, and style rewriting all operate on the same structured block tree, not on the rendered EPUB.
+1. **Parse & classify** — Text extraction, image inventory, layout type detection, confidence scoring
+2. **Artifact removal** — Header/footer strip, anti-copy cleanup, decorative image strip, ligature normalisation
+3. **Semantic structuring** — Chapter detection, heading hierarchy, table classification, image classification
+4. **AI enrichment** — Image recaptioning, diagram → Mermaid/D2, table → prose/sub-tables, confidence flagging
+5. **Human QA review** — Review UI (HTML preview), approve / correct / skip (flagged sections only)
+6. **Export** — EPUB3 generation, Kindle KFX/MOBI (Calibre), HTML reading view
+7. **Post-processing (TBD)** — Summary generation, newsletter format, daily reading plan, style rewriting
 
 ---
 
@@ -309,15 +207,6 @@ All of these are read-only operations on the intermediate model — they do not 
 
 ---
 
-## User Interaction
-
-- **Interface:** Web UI / dashboard — no local tooling, accessible to non-technical users
-- **Input:** Single PDF upload per session (v1)
-- **Review:** In-browser HTML preview with flagged section highlighting
-- **Output:** Download EPUB3, KFX/MOBI, or HTML
-
----
-
 ## Open Questions & Risks
 
 ### High priority — resolve before build
@@ -345,12 +234,12 @@ All of these are read-only operations on the intermediate model — they do not 
 
 A successful conversion should meet the following bar:
 
-1. **Readable** — no garbled text, no injected artifacts, no broken encoding
-2. **Navigable** — table of contents present, chapter skip works on device, headings are semantic
-3. **Visually appropriate** — images sized correctly for viewport, no overflow, no microscopic figures
-4. **Tables legible** — no table requires horizontal scroll or renders text below 12px effective size
-5. **Publisher-comparable** — output is indistinguishable in reading quality from a commercially produced EPUB of the same title
-6. **Diagrams native** — flowcharts and technical diagrams render as Mermaid/D2 where possible, not flat images
+1. **Readable** — no garbled text, injected artifacts, or broken encoding
+2. **Navigable** — table of contents present, chapter skip works on device, semantic headings
+3. **Visually appropriate** — images sized for viewport, no overflow or microscopic figures
+4. **Tables legible** — no horizontal scroll or text below 12px effective size
+5. **Publisher-comparable** — indistinguishable from commercial EPUB of same title
+6. **Diagrams native** — flowcharts/technical diagrams as Mermaid/D2 where possible
 
 ---
 
