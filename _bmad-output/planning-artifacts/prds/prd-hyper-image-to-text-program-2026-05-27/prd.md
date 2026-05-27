@@ -7,7 +7,7 @@ scope_narrowed: 2026-05-27 — Removed EPUB/KFX/MOBI export, image retention, di
 ---
 
 # PRD: Hyper Image-to-Text Program
-*PDF-to-semantic-HTML conversion pipeline — structured text only, English, text-layer PDFs.*
+*PDF-to-semantic-HTML conversion pipeline — accuracy-first, structured text only, English, text-layer PDFs.*
 
 ## 0. Document Purpose
 
@@ -43,7 +43,7 @@ Where confidence is low, the system flags sections for human review rather than 
 - **UJ-1. A researcher converts a PDF textbook chapter for screen-reader study.**
   - **Persona + context:** Dr. Wei, postdoc, has a 30-page PDF chapter from an academic textbook with diagrams, tables, and two-column layout.
   - **Entry state:** Web UI open. Has the PDF on their local machine.
-  - **Path:** Uploads the PDF → pipeline detects text layer → extracts text with positional metadata → artifact removal strips headers, footers, page numbers → text reflowed in correct reading order → 4 tables detected: two 3-column (HTML tables), one 7-column (structured prose), one >8-column (summary prose) → 6 images detected: AI generates inline alt-text labels for each → chapter boundaries detected via heading analysis → output preview ready in under 2 minutes → reviews 3 flagged sections (1 low-confidence chapter boundary, 2 alt-text labels below 0.85).
+  - **Path:** Uploads the PDF → pipeline detects text layer → extracts text with positional metadata → artifact removal strips headers, footers, page numbers → text reflowed in correct reading order → 4 tables detected: two 3-column (HTML tables), one 7-column (structured prose), one >8-column (summary prose) → 6 images detected: AI generates inline alt-text labels for each → chapter boundaries detected via heading analysis → output preview ready → reviews 3 flagged sections (1 low-confidence chapter boundary, 2 alt-text labels below 0.85).
   - **Climax:** Reviews flagged items — approves the chapter boundary, edits one alt-text label for accuracy. Downloads clean semantic HTML.
   - **Resolution:** Opens in browser reading mode — TOC navigable, text reflows cleanly, tables legible, image labels provide context. **Edge case:** A sidebar note was initially extracted mid-paragraph — the artifact removal pass correctly moved it to a marginal note block.
 
@@ -88,7 +88,8 @@ System extracts all text from the PDF text layer with positional metadata (coord
 - Extraction preserves reading order for single-column layouts
 - Multi-column text is extracted in correct column-first reading order
 - Positional data (x, y, page) preserved for artifact classification
-- Extraction completes within 30 seconds for a 300-page equivalent document
+- Extraction preserves correct reading order: single-column → top-to-bottom; multi-column → column-first, left-to-right
+- Extraction completions within 60 seconds for a 300-page equivalent document; speed is a secondary concern
 
 **Out of Scope:**
 - OCR for scanned/image-only PDFs
@@ -366,12 +367,12 @@ System generates a self-contained, standalone HTML document with semantic HTML5 
 **Primary**
 - **SM-1**: Clean output — no garbled text, injected artifacts, or broken encoding. Validates FR-3, FR-4, FR-5 (artifact removal).
 - **SM-2**: Navigability — in-document TOC with working anchor links, heading hierarchy correct. Validates FR-14.
-- **SM-4**: Conversion time — equivalent of a 300-page PDF processes in under 2 minutes end-to-end. Validates FR-2, FR-3, FR-6, FR-13.
+- **SM-4**: Structural accuracy — HTML output preserves the original PDF's content order, heading hierarchy, paragraph grouping, and list/table structure. Measured against a hand-annotated gold corpus. Validates FR-2, FR-3, FR-6, FR-13.
 - **SM-5**: Flag accuracy — no more than 10% false positives in flagged items (items flagged unnecessarily). Validates confidence scoring system (cross-cutting).
 
 **Counter-metrics (do not optimize)**
 - **SM-C1**: Flag rate — do not optimize for zero flags. Higher flag rates are acceptable if they indicate proper caution. Counterbalances SM-5.
-- **SM-C2**: Processing speed — do not sacrifice output quality for faster conversion. Counterbalances SM-4.
+- **SM-C2**: Processing speed — never sacrifice structural accuracy for faster conversion.
 
 ## 8. Open Questions
 
@@ -392,16 +393,16 @@ System generates a self-contained, standalone HTML document with semantic HTML5 
 
 ## 10. Cross-Cutting NFRs
 
-- **Performance:** Equivalent of 300-page PDF processed end-to-end in under 2 minutes. QA Review UI loads in under 2 seconds.
+- **Performance:** QA Review UI loads in under 2 seconds. Pipeline throughput is a secondary concern — accuracy is the primary objective.
 - **Reliability:** Pipeline does not silently produce bad output — any low-confidence decision is flagged. System handles malformed PDFs gracefully with clear error messages.
 - **Security:** Uploaded PDFs are isolated per session. Files are not accessible between user sessions. Processed output is available for download for 24 hours then deleted.
 - **Observability:** Pipeline stages log duration, confidence scores, and flag counts. Failed conversions surface error details to user and system logs.
 
 ## 11. Constraints and Guardrails
 
-- **Cost:** AI enrichment (alt-text generation, structural analysis) uses an LLM API. Per-document cost must not exceed $0.30 for a 300-page equivalent PDF. If cost exceeds threshold, fall back to non-AI paths where available.
+- **Cost:** AI enrichment (alt-text generation, structural analysis) uses an LLM API. Per-document cost should not exceed $0.30 for a 300-page equivalent PDF under normal operation. If cost exceeds threshold, the additional spend must be justified by measurable accuracy gain — do not fall back to lower-quality paths purely for cost savings.
 - **Privacy:** Uploaded PDFs are not stored beyond the 24-hour download window. PDF content is not used for model training. AI API calls do not include PII in prompts.
-- **Output quality:** The pipeline must never produce output worse than the original PDF reading experience. When confidence is low, flag rather than guess.
+- **Output quality:** The pipeline must never produce output worse than the original PDF's semantic structure. When confidence is low, flag rather than guess. Accuracy is the primary objective; speed is a secondary concern.
 
 ## 12. Why Now
 
