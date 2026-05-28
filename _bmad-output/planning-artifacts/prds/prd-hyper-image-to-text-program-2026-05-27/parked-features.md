@@ -111,3 +111,18 @@
 **Trigger:** Revisit when the target corpus analysis shows >20% of uploaded PDFs contain mathematical equations, or a key academic user requests it.
 
 **Notes:** No relationship to other parked features. Could be added independently when needed.
+
+---
+
+## Page Summary Stream (Post-Topic 4 feature idea)
+
+**Why Parked:** Speculative enhancement — core pipeline accuracy must be established first. Adds a per-page LLM call whose marginal benefit to vision model coherence is unproven.
+
+**Trigger:** Revisit after Topics 5-7 are designed and baseline accuracy (without summaries) is measured. Then run A/B test: with-summaries vs. without, measure downstream accuracy delta.
+
+**Notes:**
+- Concept: generate 1-2 sentence per-page skim summary → stack into rolling 5-page window → pass as vision model working memory
+- Origin: Topic 4 (image-paragraph context) discussion. Hypothesis that cross-page narrative improves vision classification
+- Concern: extra LLM call per page = cost additive; summary quality threshold unknown; storage and memory management TBD
+- Also: could serve as end-user "skim mode" feature (future UI feature, not part of this pipeline)
+- Dependencies: Topics 1-4 must be stable first
